@@ -40,6 +40,8 @@ extern "C" {
 // set up the 'moisture' feed on Adafruit IO (must be configured there as well)
 AdafruitIO_Feed *moisture = io.feed("moisture");
 
+// set up feeds for voltage and current 
+// #todo: rename power to voltage (must be changed on IO as well)
 AdafruitIO_Feed *power = io.feed("power");
 AdafruitIO_Feed *current = io.feed("current");
 
@@ -48,15 +50,15 @@ Adafruit_INA219 ina219;
 
 // Measurement variables
 float current_mA;
-float power_mW;
 float loadvoltage_V;
-
+float power_mW;
 
 // io port to power the moisture sensor on demand
+// not used
 #define SENSOR_POWER_PIN D8
 
 // data state
-int currentVal = 0;
+int currentVal = 0; // current moisture
 int median = 0;
 int samples = 5;
 int last = -1;
@@ -88,7 +90,7 @@ void setup() {
 
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
-  wifiManager.autoConnect("AutoConnectAP");
+  wifiManager.autoConnect("Blumentopf");
   
   // wait for serial monitor to open
   while(! Serial);
@@ -112,7 +114,7 @@ void setup() {
   Serial.println(io.statusText());
   digitalWrite(BUILTIN_LED,HIGH);
 
-  // io.run(); is required  at the top of the loop
+  // io.run(); is required at the top of the loop
   // it keeps the client connected to
   // io.adafruit.com, and processes any incoming data.
   io.run();
@@ -142,28 +144,15 @@ void setup() {
   // grab the current state of the moisture sensor
   // taking several readings and calculate median
 
-  for (int i = 0; i < samples; i++) {
     //currentVal = analogRead(MOISTURE_PIN);
     currentVal = map(analogRead(MOISTURE_PIN), 400, 900, 100, 0);
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.print(currentVal);
-    median = median + currentVal;
-    
-    Serial.print(" | ");
-    Serial.println(median);
     delay(100);
-  }
 
   //shutting down sensor power
   digitalWrite(SENSOR_POWER_PIN,LOW);
   
-  median = median / samples;
-  Serial.print("Median: ");
-  Serial.println(median);
-
   // do nothing if the value hasn't changed since last measurement
-  if(median == rtcMem.last) {
+  if(currentVal == rtcMem.last) {
     // set esp to sleep
     Serial.printf("Nothing changed - going to sleep for %d seconds\n\n", sleepSeconds);
     }
@@ -171,8 +160,13 @@ void setup() {
     // save the current state to the moisture feed to Adafruit IO
     digitalWrite(BUILTIN_LED,LOW);
     Serial.print("sending new data to io -> ");
-    Serial.println(median);
-    moisture->save(median);
+    Serial.print("Feuchte: ");
+    Serial.println(currentVal);
+    Serial.print("Strom: ");
+    Serial.println(current_mA);
+    Serial.print("Spannung: ");
+    Serial.println(loadvoltage_V);
+    moisture->save(currentVal);
     current->save(current_mA);
     power->save(loadvoltage_V);
     delay(500);
@@ -181,7 +175,7 @@ void setup() {
     }
   
   // store last state and counter in rtc memory
-  rtcMem.last = median;
+  rtcMem.last = currentVal;
   rtcMem.counter = rtcMem.counter + 1;
   // rtcMem.counter = 0;
   if (rtcMem.counter < 0) {
