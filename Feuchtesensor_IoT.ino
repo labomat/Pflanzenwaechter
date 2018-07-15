@@ -28,49 +28,36 @@
 // Adafruit IO configuration
 #include "config.h"
 
-// this is for the RTC memory read/write functions
-extern "C" {
-#include "user_interface.h" 
-}
-
 // analog pin for moisture data
 #define MOISTURE_PIN A0
 
 // set up the 'moisture' feed on Adafruit IO (must be configured there as well)
 AdafruitIO_Feed *moisture = io.feed("moisture");
 
-// io port to power the moisture sensor on demand
-#define SENSOR_POWER_PIN D8
-
-// data state
+// moisture data
 int current = 0;
-int median = 0;
-int samples = 5;
-int last = -1;
 
 // sleep for this many seconds
 const int sleepSeconds = 600;
 
-
 void setup() {
 
   pinMode(BUILTIN_LED, OUTPUT);
-  pinMode(SENSOR_POWER_PIN, OUTPUT);
   
   // start the serial connection
   Serial.begin(115200);
 
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
-  wifiManager.autoConnect("AutoConnectAP");
+  wifiManager.autoConnect("Blumentopf");
   
   // wait for serial monitor to open
   while(! Serial);
 
   Serial.println("Connected to Wifi");
 
-  Serial.println("Now connecting to Adafruit IO");
   // connect to io.adafruit.com
+  Serial.println("Now connecting to Adafruit IO");
   io.connect();
 
   // wait for a connection
@@ -91,50 +78,29 @@ void setup() {
   // io.adafruit.com, and processes any incoming data.
   io.run();
 
-  // enabling sensor power
-  digitalWrite(SENSOR_POWER_PIN,HIGH);
-  delay(200);
-
   Serial.println("reading moisture -> ");
-  // grab the current state of the moisture sensor
-  // taking several readings and calculate median
-
-  for (int i = 0; i < samples; i++) {
-    //current = analogRead(MOISTURE_PIN);
-    current = map(analogRead(MOISTURE_PIN), 400, 900, 100, 0);
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.print(current);
-    median = median + current;
-  
-    Serial.print(" | ");
-    Serial.println(median);
-    delay(200);
-  }
-
-  //shutting down sensor power
-  digitalWrite(SENSOR_POWER_PIN,LOW);
-  
-  median = median / samples;
-  Serial.print("Median: ");
-  Serial.println(median);
+  current = analogRead(MOISTURE_PIN);
+    
+  // Calibration required for sensor type
+  //current = map(analogRead(MOISTURE_PIN), 400, 900, 100, 0);
+    
+  Serial.print(current);
 
   // save the current state to the moisture feed to Adafruit IO
   digitalWrite(BUILTIN_LED,LOW);
   Serial.print("sending new data to io -> ");
-  Serial.println(median);
-  moisture->save(median);
+  Serial.println(current);
+  moisture->save(current);
   delay(500);
   digitalWrite(BUILTIN_LED,HIGH);
   Serial.printf("Going to sleep for %d seconds\n\n", sleepSeconds);
    
   // set esp to sleep
   ESP.deepSleep(sleepSeconds * 1000000);
-  
 }
 
 void loop() {
-
+  // no loop because esp is 
   
 }
 
