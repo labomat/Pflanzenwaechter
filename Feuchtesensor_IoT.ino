@@ -1,5 +1,5 @@
 // 
-// IoT Moisture sensor v2
+// IoT Moisture sensor v1
 //
 // based on
 // Adafruit IO Analog In Example
@@ -24,6 +24,8 @@
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 
+#include <Adafruit_INA219.h>
+
 // Adafruit IO configuration
 #include "config.h"
 
@@ -37,6 +39,17 @@ extern "C" {
 
 // set up the 'moisture' feed on Adafruit IO (must be configured there as well)
 AdafruitIO_Feed *moisture = io.feed("moisture");
+
+AdafruitIO_Feed *power = io.feed("power");
+AdafruitIO_Feed *current = io.feed("current");
+
+// INA sensor
+Adafruit_INA219 ina219;
+
+// Measurement variables
+float current_mA;
+float power_mW;
+float loadvoltage_V;
 
 
 // io port to power the moisture sensor on demand
@@ -68,6 +81,10 @@ void setup() {
   
   // start the serial connection
   Serial.begin(115200);
+
+  // Init INA219
+  ina219.begin();
+  ina219.setCalibration_16V_400mA();
 
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
@@ -108,6 +125,15 @@ void setup() {
   Serial.print("Last reading -> ");
   Serial.println(rtcMem.last);
 
+  current_mA = measureCurrent();
+  power_mW = measurePower();
+  loadvoltage_V = measureVoltage();
+
+  Serial.print("reading current: ");
+  Serial.println(current_mA);
+  Serial.print("reading voltage: ");
+  Serial.println(loadvoltage_V);
+
   // enabling sensor power
   digitalWrite(SENSOR_POWER_PIN,HIGH);
   delay(200);
@@ -147,6 +173,8 @@ void setup() {
     Serial.print("sending new data to io -> ");
     Serial.println(median);
     moisture->save(median);
+    current->save(current_mA);
+    power->save(loadvoltage_V);
     delay(500);
     digitalWrite(BUILTIN_LED,HIGH);
     Serial.printf("Going to sleep for %d seconds\n\n", sleepSeconds);
@@ -167,5 +195,69 @@ void setup() {
 }
 
 void loop() {
+  
+}
+
+// Function to measure current
+float measureVoltage() {
+
+  // Measure
+  float shuntvoltage = ina219.getShuntVoltage_mV();
+  float busvoltage = ina219.getBusVoltage_V();
+  float current_mA = ina219.getCurrent_mA();
+  float loadvoltage_V = busvoltage + (shuntvoltage / 1000);
+  
+  // If negative, set to zero
+  if (loadvoltage_V < 0) {
+    loadvoltage_V = 0.0; 
+  }
+ 
+  return loadvoltage_V;
+}
+
+// Function to measure current
+float measureCurrent() {
+
+  // Measure
+  float shuntvoltage = ina219.getShuntVoltage_mV();
+  float busvoltage = ina219.getBusVoltage_V();
+  float current_mA = ina219.getCurrent_mA();
+  float loadvoltage = busvoltage + (shuntvoltage / 1000);
+  
+  Serial.print("Bus Voltage:   "); Serial.print(busvoltage); Serial.println(" V");
+  Serial.print("Shunt Voltage: "); Serial.print(shuntvoltage); Serial.println(" mV");
+  Serial.print("Load Voltage:  "); Serial.print(loadvoltage); Serial.println(" V");
+  Serial.print("Current:       "); Serial.print(current_mA); Serial.println(" mA");
+  Serial.println("");
+
+  // If negative, set to zero
+  if (current_mA < 0) {
+    current_mA = 0.0; 
+  }
+ 
+  return current_mA;
+  
+}
+
+float measurePower() {
+
+  // Measure
+  float shuntvoltage = ina219.getShuntVoltage_mV();
+  float busvoltage = ina219.getBusVoltage_V();
+  float current_mA = ina219.getCurrent_mA();
+  float loadvoltage = busvoltage + (shuntvoltage / 1000);
+  
+  Serial.print("Bus Voltage:   "); Serial.print(busvoltage); Serial.println(" V");
+  Serial.print("Shunt Voltage: "); Serial.print(shuntvoltage); Serial.println(" mV");
+  Serial.print("Load Voltage:  "); Serial.print(loadvoltage); Serial.println(" V");
+  Serial.print("Current:       "); Serial.print(current_mA); Serial.println(" mA");
+  Serial.println("");
+
+  // If negative, set to zero
+  if (current_mA < 0) {
+    current_mA = 0.0; 
+  }
+ 
+  return current_mA * loadvoltage;
   
 }
