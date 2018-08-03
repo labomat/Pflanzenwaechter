@@ -1,4 +1,4 @@
-// 
+//
 // IoT Moisture sensor v2
 //
 // reads capacitive soil moisture sensor and sends data to Adafruit IO cloud
@@ -45,7 +45,7 @@ MAX17043GU battery;
 
 // RTC memory read/write functions
 extern "C" {
-#include "user_interface.h" 
+#include "user_interface.h"
 }
 
 // analog pin for moisture data
@@ -66,7 +66,7 @@ int currentVal = 0; // current moisture reading
 int last = -1;      // last reading from stored rtc data
 
 // data structure for storing data in rtc memoy during deep sleep
-// see https://github.com/SensorsIot/ESP8266-RTC-Memory 
+// see https://github.com/SensorsIot/ESP8266-RTC-Memory
 typedef struct {
   int last;
   int counter;
@@ -75,7 +75,7 @@ typedef struct {
 rtcStore rtcMem;
 
 // sleep for this many seconds
-const int sleepSeconds = 60;
+const int sleepSeconds = 1800;
 
 
 void setup() {
@@ -83,7 +83,7 @@ void setup() {
   // configure io pins
   pinMode(BUILTIN_LED, OUTPUT);
   pinMode(SENSOR_POWER_PIN, OUTPUT);
-  
+
   // start the serial connection
   Serial.begin(115200);
 
@@ -93,9 +93,9 @@ void setup() {
   // Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   wifiManager.autoConnect("Blumentopf");
-  
+
   // wait for serial monitor to open
-  while(! Serial);
+  while (! Serial);
 
   Serial.println("Connected to Wifi");
 
@@ -104,17 +104,17 @@ void setup() {
   io.connect();
 
   // wait for a connection
-  while(io.status() < AIO_CONNECTED) {
+  while (io.status() < AIO_CONNECTED) {
     Serial.print(".");
-    digitalWrite(BUILTIN_LED,LOW);
+    digitalWrite(BUILTIN_LED, LOW);
     delay(500);
-    digitalWrite(BUILTIN_LED,HIGH);
+    digitalWrite(BUILTIN_LED, HIGH);
   }
 
   // we are connected
   Serial.println();
   Serial.println(io.statusText());
-  digitalWrite(BUILTIN_LED,HIGH);
+  digitalWrite(BUILTIN_LED, HIGH);
 
   // io.run(); is required at the top of the loop
   // it keeps the client connected to
@@ -124,11 +124,11 @@ void setup() {
   // read stored value from rtc memory
   // parameter: address (starts at 64), variable name, size in byte (4 byte steps)
   system_rtc_mem_read(64, &rtcMem, sizeof(rtcMem));
-  Serial.print("Counter: "); // how many times 
+  Serial.print("Counter: "); // how many times
   Serial.println(rtcMem.counter);
   Serial.print("Last reading -> ");
   Serial.println(rtcMem.last);
-  
+
   // start battery monitoring
   battery.restart();
   voltage = battery.voltageLevel();
@@ -152,32 +152,32 @@ void setup() {
 
   // grab the current state of the moisture sensor
   Serial.println("Reading moisture -> ");
-  
+
   // currentVal = analogRead(MOISTURE_PIN);
-  // calibration: 400 -> sensor in water; 900 -> sensor in air 
+  // calibration: 400 -> sensor in water; 900 -> sensor in air
   currentVal = map(analogRead(MOISTURE_PIN), 400, 900, 100, 0);
   delay(100);
 
   // shutting down sensor power
   // digitalWrite(SENSOR_POWER_PIN,LOW);
-  
+
   // do nothing if the value hasn't changed since last measurement
-  if(currentVal == rtcMem.last) {
+  if (currentVal == rtcMem.last) {
     // set esp to sleep
     Serial.printf("Nothing changed - going to sleep for %d seconds\n\n", sleepSeconds);
-    }
+  }
   else {
     // save the current state to the moisture feed to Adafruit IO
-    digitalWrite(BUILTIN_LED,LOW);
+    digitalWrite(BUILTIN_LED, LOW);
     Serial.print("Sending new data to io -> ");
     Serial.print("Feuchte: ");
     Serial.println(currentVal);
     moisture->save(currentVal);
     delay(500);
-    digitalWrite(BUILTIN_LED,HIGH);
+    digitalWrite(BUILTIN_LED, HIGH);
     Serial.printf("Going to sleep for %d seconds\n\n", sleepSeconds);
-    }
-  
+  }
+
   // store last state and counter in rtc memory
   rtcMem.last = currentVal;
   rtcMem.counter = rtcMem.counter + 1;
@@ -186,12 +186,12 @@ void setup() {
     rtcMem.counter = 0;
   }
   system_rtc_mem_write(64, &rtcMem, sizeof(rtcMem));
-  
+
   // sending esp to sleep
   ESP.deepSleep(sleepSeconds * 1000000);
-  
+
 }
 
 void loop() {
-  
+
 }
